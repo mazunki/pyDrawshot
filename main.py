@@ -1,79 +1,139 @@
 import PIL as pil
 import tkinter as tk
 
-DEFAULT_DRAW_CANVAS = "600x100"
+from settings import *
+from output import *
 
-root = tk.Tk()
-root.geometry(DEFAULT_DRAW_CANVAS)
+class DrawshotApp(tk.Frame):
+    def __init__(self, parent, *args, **kwargs):
+        tk.Frame.__init__(self, parent, *args, *kwargs)
+        self.parent = parent
+        self.settings = get_settings()  # from file
+        self.cli_enabled = False
 
-cur_pos = 0,0
-last_pos = 0, 0
+        self.cur_pos = None, None
+        self.last_pos = None, None
+        self.draw_modus = "freehand"
 
-traces = list()
-last_trace = list()
+        self.traces = list()
+        self.last_trace = list()  # list of points, later packed into self.traces
 
-def movement(event):
-	global last_pos, cur_pos, last_trace
-	last_pos = cur_pos
-	cur_pos = event.x, event.y
-	if last_pos == (0, 0):
-		last_pos = cur_pos
-	if last_pos == cur_pos:
-		cur_pos = last_pos[0]+1, last_pos[1]
-	last_trace.append(
-		window.create_line(*last_pos, *cur_pos, fill="black", width=5, smooth=tk.TRUE, capstyle=tk.ROUND, splinesteps=1)
-	)
+        
+        # init canvas properties
+        self.x =self.settings["default_x"]
+        self.y =self.settings["default_y"]
+        self.bg_colour =self.settings["bg_colour"]
+        self.trace_colour =self.settings["default_trace_colour"]
+        self.snap_center =self.settings["snap_center"]
+        self.save_bg =self.settings["save_bg"]
 
-def new_trace(event):
-	global last_pos, cur_pos
-	print("new")
-	last_pos = 0, 0
-	cur_pos = 0, 0
+        # where to position window
+        if self.snap_center:  # center of screen
+            self.x_0 = (root.winfo_screenwidth() - self.x) // 2
+            self.y_0 = (root.winfo_screenheight() - self.y) // 2
+        else:  # snap to mouse
+           self.x_0 = root.winfo_pointerx() - root.winfo_vrootx()
+           self.y_0 = root.winfo_pointery() - root.winfo_vrooty()
 
-def reset_mouse(event):
-	global last_trace
-	print("released mouse")
-	traces.append([point for point in last_trace])
-	last_trace.clear()
+        DEFAULT_DRAW_CANVAS = f"{self.x}x{self.y}+{self.x_0}+{self.y_0}"
 
-def undo_trace(event):
-	print("undo")
-	global traces
-	print(traces)
-	if traces:
-		for point in traces[-1]:
-			print("gone point")
-			window.delete(point)
-		print("\n"*10)
-		traces.pop()
+        parent.geometry(DEFAULT_DRAW_CANVAS)  # i think this actually includes window borders, which messes with the size
+        parent.title("Drawshot")
 
-def close_window():
-	global output
-	output = window.postscript(colormode="color")
-	root.destroy()
+        
 
+        # the chalkboard is what is actually given as an output
+        self.chalkboard = tk.Canvas(self, bg=self.bg_colour, bd=0, highlightthickness=0)
 
-window = tk.Canvas(root)
-window.bind("<B1-Motion>", movement)
-window.bind("<Button-1>", new_trace)
-window.bind("<ButtonRelease-1>", reset_mouse)
-root.bind("<Control-z>", undo_trace)
-window.pack(expand=True, fill=tk.BOTH)
+        # bindings: i/o
+        self.chalkboard.bind("<B1-Motion>", self.movement)
+        self.chalkboard.bind("<Button-1>", self.new_trace)
+        self.chalkboard.bind("<ButtonRelease-1>", self.reset_mouse)
+        parent.bind("<Control-z>", self.undo_trace) # keypresses don't seem to work on the canvas or the frame
+        parent.protocol("WM_DELETE_WINDOW", self.close_window)  # pressing the X button or Alt+F4
+        parent.protocol("<Escape>", self.close_window)
+        parent.bind("<Return>", self.command_modus)
 
-root.protocol("WM_DELETE_WINDOW", close_window)
-
-root.mainloop()
+        self.chalkboard.pack(expand=True, fill=tk.BOTH)
 
 
-# save to file
-import io
-from PIL import Image
+    def movement(self, event):
+        if self.draw_modus=="freehand" or end_of_trace:
+            self.last_pos = self.cur_pos
+        self.cur_pos = event.x, event.y
 
-img = Image.open(io.BytesIO(output.encode("utf-8")))
-img.save("drawing.jpg", "jpeg")
-print(img)
+        if self.last_pos == (0, 0):  # update last position to start of trace, allowing traces to jump
+                self.last_pos = self.cur_pos
+        if self.last_pos == self.cur_pos:  # allows user to make single (visible) dots
+                self.cur_pos = self.last_pos[0]+1, self.last_pos[1]
 
-# copy to clipboard
-import subprocess as sp
-with open("drawing.jpg", "rb") as img_data:
-	sp.run("xclip -selection clipboard -t image/jpeg -i drawing.jpg", shell=True)
+        # appending each point to the last_trace stack, stored as a number by tkinter
+        if self.draw_modus=="freehand":
+            self.last_trace.append(
+                self.chalkboard.create_line(*self.last_pos, *self.cur_pos, fill=self.trace_colour, width=5, smooth=tk.TRUE, capstyle=tk.ROUND, splinesteps=1)
+            )
+        elif self.draw_modus=="straight_line":
+            pass
+            
+
+    def new_trace(self, event):
+        print("starting new trace...")
+        self.last_pos = event.x, event.y
+        self.cur_pos = event.x, event.y
+
+    def reset_mouse(self, event):
+        print("released mouse, saving trace")
+        self.traces.append([point for point in self.last_trace])
+        self.last_trace.clear()
+
+    def undo_trace(self, event):
+        if self.traces:
+            print("undoing a trace...")
+            for point in self.traces[-1]:
+                    # print("gone point")
+                    self.chalkboard.delete(point)
+            self.traces.pop()
+            print("trace gone!")
+        else: 
+            print("nothing to undo!")
+
+
+    def command_modus(self, event):
+        print("cli enabled")
+        if not self.cli_enabled: 
+            # show cli and let user write
+            self.text_input = tk.Entry(self)
+            self.text_input.place(height=20,width=100)
+            self.text_input.focus()
+            self.cli_enabled = True
+        else:
+            # parse input, vi style in mind
+            ui = self.text_input.get()
+            print(self.text_input.get())
+            
+            parse_ui(ui)
+
+            # hide cli
+            self.text_input.place_forget()
+            self.cli_enabled = False 
+
+
+
+    def close_window(self):
+        output = self.chalkboard.postscript(colormode="color")
+        # TODO settings for output mode
+        if True:
+            save_canvas_to_file(output, **self.settings)
+        if True:
+            copy_to_clipboard(output)
+
+        root.destroy()
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    DrawshotApp(root).pack(side="top", fill="both", expand=True)
+    root.mainloop()
+
+
+
