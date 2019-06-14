@@ -1,8 +1,13 @@
+import os
+location = "/".join(str(os.path.abspath(__file__)).split("/")[:-1]) + "/"
+print(location)
+
 import PIL as pil
 import tkinter as tk
 
 from settings import *
 from output import *
+
 
 class DrawshotApp(tk.Frame):
     def __init__(self, parent, *args, **kwargs):
@@ -125,7 +130,7 @@ class DrawshotApp(tk.Frame):
         if self.settings["save_to_file"]:
             save_to_file(output, self.settings)
         if self.settings["save_to_clipboard"]:
-            copy_to_clipboard(output)
+            copy_to_clipboard(output, self.settings)
 
         root.destroy()
 

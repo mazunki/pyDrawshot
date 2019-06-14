@@ -1,3 +1,5 @@
+from main import location
+
 # helper function
 def hex_to_rgba(hex_colour, grb=False, add_bg=False, only_rgb=False):
     """
@@ -56,7 +58,7 @@ def save_to_file(output, settings):
     import PIL as pil
     img_memory = save_canvas(output, settings)
     img = pil.Image.open(img_memory)
-    img.save("drawing.png", format="png")
+    img.save(location+"drawing.png", format="png")
 
 def copy_to_clipboard(output, settings):
     import subprocess as sp
@@ -66,9 +68,13 @@ def copy_to_clipboard(output, settings):
     img_memory = save_canvas(output, settings)
     print("copying file to clipboard...")
 
-    img_data = img_memory.getvalue()
+    img_data = str(img_memory.getvalue())[2:-2]
+    img_data = img_data.replace("'", "\'")
+    img_data = "'"+img_data+"'"
 
-    p = sp.run("xclip -selection clipboard -t image/png -i", stdin=sp.PIPE, stdout=sp.PIPE, shell=True)
-    p.communicate(input=img_data)
+    bash_cmd = f"echo {img_data} | xclip -selection clipboard -t image/png -i"
+    p = sp.Popen(bash_cmd, shell=True)
+    print(p.stdout)
+    #p.communicate(input=img_data)
     print("saved to clipboard")
 
