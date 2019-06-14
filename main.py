@@ -121,10 +121,10 @@ class DrawshotApp(tk.Frame):
 
     def close_window(self):
         output = self.chalkboard.postscript(colormode="color")
-        # TODO settings for output mode
-        if True:
-            save_canvas_to_file(output, **self.settings)
-        if True:
+        # FIXME saving to file is required for clipboard
+        if self.settings["save_to_file"]:
+            save_to_file(output, self.settings)
+        if self.settings["save_to_clipboard"]:
             copy_to_clipboard(output)
 
         root.destroy()
@@ -133,7 +133,10 @@ class DrawshotApp(tk.Frame):
 if __name__ == "__main__":
     root = tk.Tk()
     DrawshotApp(root).pack(side="top", fill="both", expand=True)
-    root.mainloop()
+    try:
+        root.mainloop()
+    except:
+        exit()
 
 
 
