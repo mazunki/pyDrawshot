@@ -68,13 +68,15 @@ def copy_to_clipboard(output, settings):
     img_memory = save_canvas(output, settings)
     print("copying file to clipboard...")
 
-    img_data = str(img_memory.getvalue())[2:-2]
-    img_data = img_data.replace("'", "\'")
-    img_data = "'"+img_data+"'"
+    img_data = str(img_memory.getvalue())[2:-1]
+    img_data = img_data.replace("'", "\'")#.replace("`", "\`")
+    img_data = "'" + img_data + "'"
 
-    bash_cmd = f"echo {img_data} | xclip -selection clipboard -t image/png -i"
-    p = sp.Popen(bash_cmd, shell=True)
+
+    bash_cmd = f"xclip -selection clipboard -t image/png -i drawing.png"
+    p = sp.Popen(bash_cmd, shell=True, stdin=sp.PIPE, stdout=sp.PIPE, stderr=sp.PIPE)
     print(p.stdout)
+    print(p.stderr)
     #p.communicate(input=img_data)
     print("saved to clipboard")
 

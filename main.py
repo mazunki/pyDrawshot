@@ -10,7 +10,9 @@ from output import *
 
 
 class DrawshotApp(tk.Frame):
+
     def __init__(self, parent, *args, **kwargs):
+
         tk.Frame.__init__(self, parent, *args, *kwargs)
         self.parent = parent
         self.settings = get_settings()  # from file
@@ -23,6 +25,8 @@ class DrawshotApp(tk.Frame):
         self.traces = list()
         self.last_trace = list()  # list of points, later packed into self.traces
 
+        from parser import parse_command  # defining it outside as it's prone to complexity
+        self.parse_command = parse_command
         
         # init canvas properties
         self.x =self.settings["default_x"]
@@ -108,7 +112,7 @@ class DrawshotApp(tk.Frame):
         if not self.cli_enabled: 
             # show cli and let user write
             self.text_input = tk.Entry(self)
-            self.text_input.place(height=20,width=100)
+            self.text_input.place(height=20,width=500)
             self.text_input.focus()
             self.cli_enabled = True
         else:
@@ -116,7 +120,7 @@ class DrawshotApp(tk.Frame):
             ui = self.text_input.get()
             print(self.text_input.get())
             
-            parse_ui(ui)
+            self.parse_command(self, ui)
 
             # hide cli
             self.text_input.place_forget()
